@@ -1,0 +1,875 @@
+<title>競業雷達</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 版面：頂部導覽 + 步驟條，單一主欄，資料以表格與條形圖呈現；冷調白底、青綠為主色 */
+:root{
+  --bg:#f5f8fa; --surface:#ffffff; --surface-2:#eef3f6; --line:#d9e2e8; --ink:#0f2230; --muted:#5b6e7b;
+  --accent:#0a8f8a; --accent-ink:#ffffff; --accent-soft:#dff3f1; --focus:#0a8f8a;
+  --red:#d93f3f; --red-soft:#fde8e8; --yellow:#c98a00; --yellow-soft:#fdf3d6; --green:#1f9d55; --green-soft:#e1f5e9;
+  --pos:#1f9d55; --neu:#8a9ba8; --neg:#d93f3f;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px; --shadow:0 1px 2px rgba(15,34,48,.06),0 4px 16px rgba(15,34,48,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c151c; --surface:#121f28; --surface-2:#182833; --line:#24384a; --ink:#e3edf2; --muted:#93a8b6;
+  --accent:#2cc4bb; --accent-ink:#04201e; --accent-soft:#123634; --focus:#2cc4bb;
+  --red:#f06a6a; --red-soft:#3a1c1e; --yellow:#e8b33a; --yellow-soft:#3a2f12; --green:#4cc684; --green-soft:#14331f;
+  --pos:#4cc684; --neu:#6f8493; --neg:#f06a6a; --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c151c; --surface:#121f28; --surface-2:#182833; --line:#24384a; --ink:#e3edf2; --muted:#93a8b6;
+  --accent:#2cc4bb; --accent-ink:#04201e; --accent-soft:#123634; --focus:#2cc4bb;
+  --red:#f06a6a; --red-soft:#3a1c1e; --yellow:#e8b33a; --yellow-soft:#3a2f12; --green:#4cc684; --green-soft:#14331f;
+  --pos:#4cc684; --neu:#6f8493; --neg:#f06a6a; --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.3}
+h2{font-size:1.35rem} h3{font-size:1.05rem}
+a{color:var(--accent)}
+.mono,.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)} .small{font-size:.85rem}
+/* 頂部 */
+.top{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.top .wrap{display:flex;align-items:center;gap:16px;padding-block:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.1rem;letter-spacing:.02em}
+.brand svg{flex:none}
+.brand small{font-family:var(--f-mono);font-weight:400;color:var(--muted);font-size:.72rem;letter-spacing:.12em}
+.env{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:.78rem;color:var(--muted);background:var(--surface)}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--neu);display:inline-block}
+.pill.ok i{background:var(--green)} .pill.bad i{background:var(--red)} .pill.wait i{background:var(--yellow)}
+/* 步驟 */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding-block:18px 6px;list-style:none;margin:0}
+.steps li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--muted);min-width:0}
+.steps li b{font-family:var(--f-mono);font-size:.8rem;width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line)}
+.steps li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps li.on{border-color:var(--accent);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+.steps li.on b{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.steps li.done b{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.steps li.done{cursor:pointer}
+@media (max-width:640px){.steps{grid-template-columns:repeat(4,auto)}.steps li span{display:none}.steps li.on span{display:inline}}
+/* 面板 */
+main{padding-block:12px 64px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:var(--shadow);display:grid;gap:20px;min-width:0}
+.panel-head{display:grid;gap:6px}
+.panel-head p{margin:0;color:var(--muted);max-width:68ch}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.field{display:grid;gap:6px;min-width:0;flex:1 1 220px}
+.field label{font-size:.82rem;color:var(--muted);font-weight:500}
+input[type=text],input[type=url],input[type=date],input[type=password],select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px;width:100%;min-width:0}
+textarea{min-height:110px;resize:vertical}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,.steps li:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.big input{font-size:1.15rem;padding:12px 14px}
+button{font:inherit;cursor:pointer;border-radius:8px;padding:9px 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:500;display:inline-flex;align-items:center;gap:6px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover{filter:brightness(1.06)}
+button.ghost{background:transparent;border-color:transparent;color:var(--accent);padding-inline:8px}
+button.sm{padding:4px 10px;font-size:.82rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:16px}
+.notice{border-radius:var(--r);padding:12px 14px;border:1px solid var(--line);background:var(--surface-2);font-size:.9rem}
+.notice.err{border-color:var(--red);background:var(--red-soft)}
+.notice.warn{border-color:var(--yellow);background:var(--yellow-soft)}
+.notice.info{border-color:var(--accent);background:var(--accent-soft)}
+.notice b{display:block;margin-bottom:2px}
+/* 選項卡 */
+.choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.choice{border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:6px;cursor:pointer;background:var(--surface);position:relative;min-width:0}
+.choice:hover{border-color:var(--accent)}
+.choice.sel{border-color:var(--accent);background:var(--accent-soft)}
+.choice .t{display:flex;gap:8px;align-items:flex-start}
+.choice .t input{margin-top:5px;flex:none;accent-color:var(--accent)}
+.choice h3{font-size:1rem}
+.choice p{margin:0;font-size:.86rem;color:var(--muted);overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.site-in{font-size:.82rem;padding:5px 8px}
+.hero1{padding-block:48px;justify-items:center}
+.q1{display:flex;gap:10px;width:100%;max-width:560px}
+.q1 input{font-size:1.2rem;padding:14px 16px;flex:1}
+.q1 button{padding-inline:24px;font-size:1.05rem}
+.confirm1{width:100%;max-width:560px}
+.choice.cand{display:flex;gap:14px;align-items:center;justify-content:space-between;cursor:default;flex-wrap:wrap}
+.choice.cand>button{flex:none}
+/* 等級徽章 */
+.lv{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:700;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.lv::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.lv.red{color:var(--red);background:var(--red-soft)} .lv.yellow{color:var(--yellow);background:var(--yellow-soft)} .lv.green{color:var(--green);background:var(--green-soft)} .lv.none{color:var(--muted);background:var(--surface-2)}
+.st{font-size:.78rem;padding:1px 8px;border-radius:6px;white-space:nowrap}
+.st.positive{color:var(--pos);background:var(--green-soft)} .st.neutral{color:var(--muted);background:var(--surface-2)} .st.negative{color:var(--neg);background:var(--red-soft)}
+/* 表格 */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);min-width:0}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface-2);font-weight:500;color:var(--muted);font-size:.78rem;letter-spacing:.04em;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.cell-ok{color:var(--green);font-weight:500}.cell-err{color:var(--red)}.cell-skip{color:var(--muted)}
+.title-cell a{color:var(--ink);text-decoration:none;font-weight:500}
+.title-cell a:hover{color:var(--accent);text-decoration:underline}
+.title-cell p{margin:2px 0 0;color:var(--muted);font-size:.82rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input{width:auto;padding:6px 10px;font-size:.85rem}
+/* 進度 */
+.progress{height:6px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.progress i{transition:none}}
+/* 報告 */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;background:var(--surface)}
+.kpi .v{font-family:var(--f-mono);font-size:1.7rem;font-weight:500;line-height:1.2}
+.kpi .l{font-size:.8rem;color:var(--muted)}
+.sec{display:grid;gap:12px;min-width:0;align-content:start}
+.sec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px}
+.sec-h .k{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+.brief{background:var(--surface-2);border-radius:var(--r);padding:16px 18px;display:grid;gap:10px}
+.brief p{margin:0;max-width:75ch}
+.brief ul{margin:0;padding-left:1.2em}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(80px,160px) 1fr 52px;gap:10px;align-items:center;font-size:.86rem}
+.bar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .tr{height:18px;background:var(--surface-2);border-radius:4px;overflow:hidden;display:flex}
+.bar .tr i{display:block;height:100%}
+.bar .vv{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.kw{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.kw span{border:1px solid var(--line);border-radius:999px;padding:3px 12px;background:var(--surface)}
+.kw span b{font-family:var(--f-mono);font-weight:500;color:var(--muted);margin-left:6px;font-size:.8em}
+.bcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.bcard{border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.bcard.red{border-top:3px solid var(--red)} .bcard.yellow{border-top:3px solid var(--yellow)} .bcard.green{border-top:3px solid var(--green)}
+.bcard h4{margin:0;font-size:.78rem;color:var(--muted);font-weight:500;letter-spacing:.06em}
+.bcard ul{margin:0;padding-left:1.1em;font-size:.88rem}
+.bcard .vs{font-size:.88rem;background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.self-mark{font-size:.7rem;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle}
+details.settings{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:0 14px}
+details.settings summary{cursor:pointer;padding:10px 0;font-size:.88rem;color:var(--muted)}
+details.settings[open]{padding-bottom:14px}
+.linkrow{display:flex;gap:6px;flex-wrap:wrap}
+.linkrow a{font-size:.8rem;border:1px solid var(--line);border-radius:6px;padding:2px 8px;text-decoration:none;white-space:nowrap}
+.linkrow a:hover{border-color:var(--accent)}
+.linkcol{display:grid;gap:4px;justify-items:start}
+.linkcol a{font-size:.84rem;white-space:nowrap;text-decoration:none;border-bottom:1px dotted var(--accent)}
+.linkcol a:hover{border-bottom-style:solid}
+table.hub td{min-width:120px}
+.hidden-print{}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" fill="none" stroke="var(--accent)" stroke-width="1.5"/><circle cx="14" cy="14" r="7" fill="none" stroke="var(--accent)" stroke-opacity=".5" stroke-width="1.2"/><path d="M14 14 L24 8" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="18" r="2" fill="var(--red)"/><circle cx="9" cy="10" r="1.6" fill="var(--yellow)"/></svg>
+      <div>競業雷達 <small>COMPETITIVE RADAR</small></div>
+    </div>
+    <div class="env" id="env"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <ol class="steps" id="steps">
+    <li data-s="1"><b>1</b><span>確認公司</span></li>
+    <li data-s="2"><b>2</b><span>選擇競業</span></li>
+    <li data-s="3"><b>3</b><span>蒐集資料</span></li>
+    <li data-s="4"><b>4</b><span>分析報告</span></li>
+  </ol>
+</div>
+
+<main class="wrap">
+  <div id="view"></div>
+  <details class="settings" id="settings" style="margin-top:16px">
+    <summary>連線與 AI 設定</summary>
+    <div style="display:grid;gap:12px">
+      <p class="small muted" style="margin:0">自動抓取需要在電腦上執行完整版（雙擊 start-windows.bat 或 start-mac.command）。金鑰只存在你的瀏覽器。</p>
+      <div class="row">
+        <div class="field"><label for="apikey">Anthropic API Key（後端未設定時使用，只存在你的瀏覽器）</label><input type="password" id="apikey" placeholder="sk-ant-..."></div>
+        <div class="field"><label for="serperkey">Google 搜尋金鑰（Serper API Key，用來自動搜尋 Google、Facebook、官網）</label><input type="password" id="serperkey" placeholder="從 serper.dev 取得"></div>
+        <button id="savekey">儲存</button>
+        <button id="reset" class="ghost">清除全部資料重新開始</button>
+      </div>
+    </div>
+  </details>
+</main>
+
+<script>
+(() => {
+'use strict';
+// ================= 狀態 =================
+const today = new Date();
+const iso = d => d.toISOString().slice(0, 10);
+const daysAgo = n => iso(new Date(Date.now() - n * 86400000));
+const DEFAULT = () => ({
+  step: 1, query: { name: '', hint: '' }, candidates: [], company: null,
+  competitors: [], from: daysAgo(30), to: iso(today),
+  sources: { news: true, newsEn: false, google: true, facebook: true, site: true, youtube: true },
+  items: [], log: {}, analysis: {}, report: null, reportAt: null,
+});
+let S = DEFAULT();
+const env = { backend: null, backendAI: false, youtube: false, google: false, sample: null, sampleChecked: false };
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const saved = store.get('radar.state'); if (saved && saved.step) { S = Object.assign(DEFAULT(), saved); S.sources = { ...DEFAULT().sources, ...(saved.sources || {}) }; }
+const save = () => store.set('radar.state', S);
+let userKey = store.get('radar.key') || '';
+let serperKey = store.get('radar.serper') || '';
+const googleReady = () => !!env.backend && (env.google || !!serperKey);
+const namesOf = b => [b.name, ...(b.aliases || [])].map(x => String(x).trim()).filter((x, i, a) => x && a.indexOf(x) === i).slice(0, 4);
+
+// ================= 工具 =================
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } };
+const link = (u, text) => { const s = safeUrl(u); return s ? `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${text}</a>` : text; };
+const fmtDate = d => d ? new Date(d).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '日期不明';
+const hash = s => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
+const TYPE = { news: '新聞', google: 'Google 搜尋', facebook: 'Facebook', site: '官網', youtube: 'YouTube', manual: '手動貼上' };
+const LV = { red: '紅色・高度相關', yellow: '黃色・需關注', green: '綠色・低相關' };
+const LVs = { red: '紅', yellow: '黃', green: '綠' };
+const SENT = { positive: '正面', neutral: '中立', negative: '負面' };
+const brands = () => S.company ? [{ ...S.company, self: true }, ...S.competitors.filter(c => c.checked)] : [];
+const API = '';
+
+async function api(path, opts = {}) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), opts.timeout || 30000);
+  try {
+    const r = await fetch(API + path, { ...opts, headers: { ...(opts.headers || {}), ...(serperKey ? { 'X-User-Serper-Key': serperKey } : {}) }, signal: ctl.signal });
+    const data = await r.json().catch(() => ({ error: `後端回應格式錯誤（HTTP ${r.status}）` }));
+    if (!r.ok || data.error) { const e = new Error(data.error || `HTTP ${r.status}`); e.data = data; throw e; }
+    return data;
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('連線逾時');
+    if (e instanceof TypeError) throw new Error('無法連線到後端服務（預覽頁或後端未啟動）');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+
+// ================= AI =================
+function aiReady() { return env.backendAI || (env.backend && userKey) || !!env.sample; }
+function aiLabel() { return env.backendAI ? '後端 AI' : (env.backend && userKey) ? '你的 API Key' : env.sample ? 'Claude（你的帳號）' : null; }
+function parseJSON(text) {
+  let t = String(text || '').replace(/```(?:json)?/gi, '').trim();
+  const a = t.search(/[[{]/); const b = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
+  if (a < 0 || b < a) throw new Error('AI 回覆不是 JSON 格式');
+  return JSON.parse(t.slice(a, b + 1));
+}
+async function askAI(prompt, { tier = 'default', maxTokens = 6000 } = {}) {
+  if (env.backendAI || (env.backend && userKey)) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (userKey) headers['X-User-Api-Key'] = userKey;
+    const d = await api('/api/ai', { method: 'POST', headers, body: JSON.stringify({ prompt, maxTokens }), timeout: 180000 });
+    return parseJSON(d.text);
+  }
+  if (env.sample) {
+    try { const { text } = await env.sample(prompt, { modelTier: tier }); return parseJSON(text); }
+    catch (e) {
+      const m = { not_granted: '你沒有允許此頁使用 Claude，AI 功能已停用。', rate_limited: 'Claude 使用次數暫時達到上限，請稍後再試。' };
+      throw new Error(m[e.code] || e.message || 'AI 呼叫失敗');
+    }
+  }
+  throw new Error('尚未連接 AI：請啟動後端並設定 ANTHROPIC_API_KEY，或在下方「連線與 AI 設定」輸入 API Key。');
+}
+
+// ================= 環境偵測 =================
+async function detect() {
+  try { const h = await api('/api/health', { timeout: 4000 }); env.backend = true; env.backendAI = !!h.ai; env.youtube = !!h.youtube; env.google = !!h.google; }
+  catch { env.backend = false; }
+  renderEnv(); render();
+  if (window.claude && claude.use) {
+    try { env.sample = await claude.use('sample'); } catch { env.sample = null; }
+  }
+  env.sampleChecked = true; renderEnv(); render();
+}
+function renderEnv() {
+  const p = (cls, t) => `<span class="pill ${cls}"><i></i>${t}</span>`;
+  const b = env.backend === null ? p('wait', '檢查後端…') : env.backend ? p('ok', '後端已連線') : p('bad', '線上版：文章需手動貼上');
+  const a = aiReady() ? p('ok', 'AI：' + aiLabel()) : (!env.sampleChecked ? p('wait', '檢查 AI…') : p('bad', 'AI 未連接'));
+  const g = env.backend ? (googleReady() ? p('ok', 'Google 搜尋已啟用') : p('bad', 'Google 搜尋未設定')) : '';
+  $('#env').innerHTML = b + g + a;
+}
+
+// ================= 步驟導覽 =================
+function go(n) { S.step = n; save(); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+function renderSteps() {
+  const max = S.report ? 4 : S.items.length ? 4 : S.company ? (S.competitors.some(c => c.checked) ? 3 : 2) : 1;
+  $$('#steps li').forEach(li => {
+    const s = +li.dataset.s; li.className = s === S.step ? 'on' : s <= max ? 'done' : '';
+    li.tabIndex = s <= max && s !== S.step ? 0 : -1;
+    li.onclick = li.onkeydown = e => { if ((e.type === 'click' || e.key === 'Enter') && s <= max) go(s); };
+  });
+}
+function render() {
+  renderSteps();
+  $('#settings').hidden = S.step === 1;
+  const v = $('#view');
+  ({ 1: view1, 2: view2, 3: view3, 4: view4 })[S.step](v);
+}
+const notice = (cls, title, body) => `<div class="notice ${cls}">${title ? `<b>${title}</b>` : ''}${body}</div>`;
+
+// ================= 步驟 1：確認公司 =================
+let busy1 = false, err1 = '', showManual = false;
+function pickCompany(c) {
+  if (!S.company || S.company.name !== c.name) resetDownstream();
+  S.company = c; save(); go(2);
+  if (!S.competitors.length && aiReady()) suggestCompetitors();
+}
+function view1(v) {
+  const searched = S.searched && S.searched === S.query.name;
+  const cands = searched ? S.candidates : [];
+  v.innerHTML = `<section class="panel hero1">
+    <div class="panel-head" style="text-align:center;justify-items:center"><h2 style="font-size:1.6rem">要分析哪一家公司？</h2></div>
+    <form id="f1" class="q1">
+      <input type="text" id="q-name" value="${esc(S.query.name)}" placeholder="例如 Gen-Wisdom" aria-label="公司名稱" autocomplete="off">
+      <button class="primary" type="submit" ${busy1 ? 'disabled' : ''}>${busy1 ? '<i class="spin"></i> 查詢中' : '查詢'}</button>
+    </form>
+    ${searched && !busy1 ? (cands.length ? `<div class="sec confirm1"><h3 style="text-align:center">是這家公司嗎？</h3>
+      ${cands.map((c, i) => `<div class="choice cand">
+        <div style="min-width:0"><h3>${esc(c.name)}</h3>
+          <div class="tags">${c.industry ? `<span class="tag">${esc(c.industry)}</span>` : ''}${c.region ? `<span class="tag">${esc(c.region)}</span>` : ''}</div>
+          ${(c.aliases || []).length ? `<p>也叫：${c.aliases.map(esc).join('、')}</p>` : ''}
+          <p>${esc([c.products, c.description].filter(Boolean).join('。'))}</p>
+          <div class="linkrow" style="margin-top:4px">${safeUrl(c.website) ? link(c.website, '官網 ↗') : ''}${safeUrl(c.facebook) ? link(c.facebook, 'Facebook ↗') : ''}${(c.evidence || []).slice(0, 3).map(n => S.evidence[n]).filter(Boolean).map(x => link(x.url, esc(String(x.title).slice(0, 24)) + ' ↗')).join('')}</div></div>
+        <button class="primary" data-pick="${i}">是，就是這家</button>
+      </div>`).join('')}
+      <div style="text-align:center"><button class="ghost" id="b-none">都不是</button></div>
+      ${evidenceList()}</div>`
+    : `<div class="sec confirm1"><div class="choice cand"><div style="min-width:0"><h3>確認要分析「${esc(S.query.name)}」嗎？</h3>
+        <p>${err1 ? esc(err1) : 'AI 沒有找到符合的公司資料，將直接用這個名稱搜尋。'}</p></div>
+        <button class="primary" id="b-yes">是，開始</button></div>${evidenceList()}</div>`) : ''}
+    ${searched && !busy1 && S.idNote ? `<p class="small muted confirm1" style="margin:0;text-align:center">${esc(S.idNote)}</p>` : ''}
+    ${!env.backend && env.backend !== null ? `<p class="small muted confirm1" style="margin:0;text-align:center">線上版只能用 AI 既有知識辨識公司，也不會自動抓資料。下載完整版就會即時搜尋 Google、Facebook、新聞。</p>` : ''}
+    ${showManual ? `<div class="sec confirm1"><div class="row">
+      <div class="field"><label for="m-name">正確的公司名稱</label><input type="text" id="m-name" value="${esc(S.query.name)}"></div>
+      <div class="field"><label for="m-prod">主要產品或產業（選填，比較會更準）</label><input type="text" id="m-prod"></div>
+      <button class="primary" id="b-manual">確認</button></div></div>` : ''}
+  </section>`;
+  $('#q-name').focus();
+  $('#f1').onsubmit = async e => {
+    e.preventDefault();
+    S.query.name = $('#q-name').value.trim(); if (!S.query.name) return;
+    showManual = false; err1 = ''; S.candidates = []; S.searched = S.query.name;
+    S.evidence = []; S.idNote = '';
+    if (!env.backend && !aiReady()) { save(); return render(); }
+    busy1 = true; render();
+    if (env.backend) {
+      try {
+        const d = await api('/api/identify?q=' + encodeURIComponent(S.query.name), { timeout: 45000 });
+        S.evidence = (d.items || []).filter(x => x.title).slice(0, 40);
+        if (!d.google) S.idNote = '尚未設定 Google 搜尋金鑰，這次只用新聞搜尋結果辨識。';
+        else if ((d.errors || []).length) S.idNote = '部分搜尋失敗：' + d.errors.join('；');
+      } catch (e) { S.idNote = '即時搜尋失敗：' + e.message; }
+    }
+    try {
+      if (!aiReady()) throw new Error('AI 尚未連接');
+      const ev = S.evidence.map((x, i) => `[${i}] ${x.title}｜${x.url}｜${(x.summary || '').slice(0, 160)}`).join('\n');
+      const r = await askAI(`你是企業研究助理。使用者輸入「${S.query.name}」，這可能是公司的全名、簡稱、中文或英文名稱，也可能只打了一部分。
+請找出所有名稱包含或對應這個字詞的公司（中英文、全名、簡稱都算），同名但不同的公司要分開列出，最多 10 家，最可能的排第一。
+${ev ? `以下是剛剛從 Google、新聞、Facebook 實際搜尋到的結果，請以這些結果為主要依據；website 與 facebook 只能填結果中真的出現過的網址：\n${ev}` : '目前沒有即時搜尋結果，只能依你既有的知識；不確定的欄位留空字串，不要編造網址。'}
+每家公司請給：name（最常用的名稱）、aliases（其他中英文名稱或簡稱，之後用來搜尋）、industry、region、products、description（一句話）、website（官網網址）、facebook（臉書粉專網址）、evidence（支持這家公司的結果編號）。用繁體中文。
+只輸出 JSON：{"candidates":[{"name":"","aliases":[],"industry":"","region":"","products":"","description":"","website":"","facebook":"","evidence":[0]}]}`, { tier: S.evidence.length ? 'default' : 'quick', maxTokens: 4000 });
+      S.candidates = (r.candidates || []).filter(c => c && c.name).slice(0, 10).map(c => ({ ...c, aliases: (c.aliases || []).map(String).slice(0, 5), evidence: (c.evidence || []).map(Number).filter(n => S.evidence[n]) }));
+    } catch (e) {
+      // 沒有 AI 時，用 Google 知識面板當候選
+      const kg = S.evidence.filter(x => x.type === 'kg');
+      S.candidates = kg.map(x => ({ name: x.title, description: x.summary, website: x.url, aliases: [], evidence: [] }));
+      if (!S.candidates.length) err1 = (e.message === 'AI 尚未連接' ? '' : 'AI 查詢沒有成功（' + e.message + '）。') + '將直接用這個名稱搜尋。';
+    }
+    busy1 = false; save(); render();
+  };
+  $$('[data-pick]').forEach(b => b.onclick = () => pickCompany({ ...S.candidates[+b.dataset.pick] }));
+  const yes = $('#b-yes'); if (yes) yes.onclick = () => pickCompany({ name: S.query.name, website: '', industry: '', products: '' });
+  const none = $('#b-none'); if (none) none.onclick = () => { showManual = true; render(); $('#m-name').focus(); };
+  const man = $('#b-manual'); if (man) man.onclick = () => { const name = $('#m-name').value.trim(); if (!name) return; pickCompany({ name, website: '', industry: '', products: $('#m-prod').value.trim() }); };
+}
+function evidenceList() {
+  if (!(S.evidence || []).length) return '';
+  return `<details class="settings"><summary>查看 ${S.evidence.length} 筆即時搜尋結果</summary><div class="linkcol">${S.evidence.map(x => `<span class="small">${link(x.url, esc(x.title))} <span class="muted">${esc(x.source || '')}</span></span>`).join('')}</div></details>`;
+}
+function resetDownstream() { S.competitors = []; S.items = []; S.log = {}; S.analysis = {}; S.report = null; }
+
+// ================= 步驟 2：競業 =================
+let busy2 = false, err2 = '';
+async function suggestCompetitors() {
+  busy2 = true; err2 = ''; render();
+  const c = S.company;
+  try {
+    const r = await askAI(`你是競爭情報分析師。我方公司：${c.name}；產業：${c.industry || '未提供'}；地區：${c.region || '未提供'}；產品／服務：${c.products || '未提供'}；說明：${c.description || ''}。
+請列出 5～8 家最主要的競爭對手（優先同市場、同客群、相同產品類型），每家說明為何是競業。
+只寫你確知存在的公司，不確定的官網留空字串。用繁體中文。
+只輸出 JSON：{"competitors":[{"name":"","aliases":["其他中英文名稱或簡稱"],"website":"","overlap":"直接競爭|部分重疊|潛在競爭","reason":"一句話，具體說明與我方哪個產品重疊"}]}`, { maxTokens: 3000 });
+    const have = new Set(S.competitors.map(x => x.name.toLowerCase()));
+    for (const x of r.competitors || []) if (x.name && !have.has(x.name.toLowerCase())) S.competitors.push({ ...x, checked: x.overlap !== '潛在競爭', ai: true });
+  } catch (e) { err2 = e.message; }
+  busy2 = false; save(); render();
+}
+function view2(v) {
+  const n = S.competitors.filter(c => c.checked).length;
+  v.innerHTML = `<section class="panel">
+    <div class="panel-head"><h2>${esc(S.company.name)} 的競業公司</h2>
+      <p>勾選要追蹤的公司，也可以新增。「其他名稱」會一起搜尋（例如中文名、英文名、簡稱），官網網址用來讀取對方的文章，都可以直接修改。</p></div>
+    ${busy2 ? notice('info', '', '<i class="spin"></i> AI 正在整理可能的競業…') : ''}
+    ${err2 ? notice('err', '無法取得 AI 推薦', esc(err2) + '<br>請在下方手動新增競業公司。') : ''}
+    ${S.competitors.length ? `<div class="choices">${S.competitors.map((c, i) => `
+      <div class="choice ${c.checked ? 'sel' : ''}" data-i="${i}">
+        <label class="t"><input type="checkbox" ${c.checked ? 'checked' : ''} data-ck="${i}"><h3>${esc(c.name)}</h3></label>
+        <div class="tags">${c.overlap ? `<span class="tag">${esc(c.overlap)}</span>` : ''}${c.ai ? '<span class="tag">AI 推薦</span>' : '<span class="tag">手動新增</span>'}</div>
+        ${c.reason ? `<p>${esc(c.reason)}</p>` : ''}
+        <input type="text" class="site-in" data-alias="${i}" value="${esc((c.aliases || []).join('、'))}" placeholder="其他中英文名稱或簡稱，用、分隔" aria-label="${esc(c.name)} 其他名稱">
+        <input type="url" class="site-in" data-site="${i}" value="${esc(c.website || '')}" placeholder="官網網址（選填）" aria-label="${esc(c.name)} 官網">
+        <div><button class="ghost sm" data-rm="${i}">移除</button></div>
+      </div>`).join('')}</div>` : (!busy2 ? '<p class="muted">尚無競業公司。</p>' : '')}
+    <div class="sec"><h3>新增競業</h3>
+      <div class="row">
+        <div class="field"><label for="c-name">公司名稱</label><input type="text" id="c-name"></div>
+        <div class="field"><label for="c-site">官網網址（選填）</label><input type="url" id="c-site" placeholder="https://"></div>
+        <button id="b-add">新增</button>
+        <button id="b-more" ${busy2 || !aiReady() ? 'disabled' : ''}>請 AI 再推薦</button>
+      </div></div>
+    <div class="actions"><button id="b-back2">← 上一步</button><span class="muted small">已勾選 ${n} 家</span>
+      <button class="primary" id="b-next2" ${n ? '' : 'disabled'}>下一步：蒐集資料 →</button></div>
+  </section>`;
+  $$('[data-ck]').forEach(x => x.onchange = () => { S.competitors[+x.dataset.ck].checked = x.checked; save(); render(); });
+  $$('[data-alias]').forEach(x => x.onchange = () => { S.competitors[+x.dataset.alias].aliases = x.value.split(/[、,，;；]/).map(t => t.trim()).filter(Boolean); save(); });
+  $$('[data-site]').forEach(x => x.onchange = () => { S.competitors[+x.dataset.site].website = x.value.trim(); save(); });
+  $$('[data-rm]').forEach(x => x.onclick = () => { S.competitors.splice(+x.dataset.rm, 1); save(); render(); });
+  $('#b-add').onclick = () => { const name = $('#c-name').value.trim(); if (!name) return $('#c-name').focus(); S.competitors.push({ name, website: $('#c-site').value.trim(), checked: true, ai: false }); save(); render(); };
+  $('#c-name').onkeydown = e => { if (e.key === 'Enter') $('#b-add').click(); };
+  $('#b-more').onclick = suggestCompetitors;
+  $('#b-back2').onclick = () => go(1);
+  $('#b-next2').onclick = () => go(3);
+}
+
+// ================= 步驟 3：蒐集 =================
+let busy3 = false, prog3 = { done: 0, total: 0 }, filt3 = { brand: '', type: '' }, manualMsg = '';
+function normTitle(t) { return String(t || '').toLowerCase().replace(/\s+-\s+[^-]{1,40}$/, '').replace(/[\s\p{P}\p{S}]+/gu, ''); }
+function normUrl(u) { try { const x = new URL(u); [...x.searchParams.keys()].forEach(k => /^(utm_|fbclid|gclid|oc$)/.test(k) && x.searchParams.delete(k)); return (x.host.replace(/^www\./, '') + x.pathname.replace(/\/$/, '') + x.search).toLowerCase(); } catch { return u; } }
+function addItems(brand, list) {
+  let added = 0;
+  const seenT = new Set(S.items.filter(i => i.brand === brand).map(i => normTitle(i.title)));
+  const seenU = new Set(S.items.filter(i => i.brand === brand).map(i => normUrl(i.url)));
+  for (const it of list) {
+    const t = normTitle(it.title), u = it.url ? normUrl(it.url) : '';
+    if (!t || seenT.has(t) || (u && seenU.has(u))) continue;
+    seenT.add(t); if (u) seenU.add(u);
+    S.items.push({ id: hash(brand + '|' + (u || t)), brand, type: it.type, title: it.title, url: it.url || '', date: it.date || '', source: it.source || '', summary: (it.summary || '').slice(0, 600), text: (it.text || '').slice(0, 3000), manual: !!it.manual });
+    added++;
+  }
+  return added;
+}
+function inDate(i) { if (!i.date) return true; const t = Date.parse(i.date); return t >= Date.parse(S.from + 'T00:00:00') && t <= Date.parse(S.to + 'T23:59:59'); }
+async function collect() {
+  if (busy3) return;
+  const bs = brands();
+  const jobs = [];
+  S.log = {};
+  // 重新整理時保留手動資料，其他來源重抓
+  S.items = S.items.filter(i => i.manual);
+  const gr = googleReady();
+  for (const b of bs) {
+    S.log[b.name] = {};
+    const q = encodeURIComponent(namesOf(b).join('|')), d = `&from=${S.from}&to=${S.to}`;
+    let host = ''; try { host = new URL(b.website).hostname.replace(/^www\./, ''); } catch {}
+    const needKey = { skip: '需要 Google 搜尋金鑰（見上方）' };
+    if (S.sources.news) jobs.push([b, 'news', `/api/news?q=${q}${d}`]);
+    if (S.sources.newsEn) jobs.push([b, 'newsEn', `/api/news?q=${q}${d}&lang=en`]);
+    if (S.sources.google) { if (gr) jobs.push([b, 'google', `/api/google?q=${q}${d}&lang=all`]); else S.log[b.name].google = needKey; }
+    if (S.sources.facebook) { if (gr) jobs.push([b, 'facebook', `/api/google?q=${q}${d}&site=facebook.com`]); else S.log[b.name].facebook = needKey; }
+    if (S.sources.site) {
+      if (safeUrl(b.website)) jobs.push([b, 'site', `/api/site?url=${encodeURIComponent(b.website)}${d}`]); else S.log[b.name].site = { skip: '未提供官網網址' };
+      if (host && gr) jobs.push([b, 'site2', `/api/google?q=${q}${d}&site=${encodeURIComponent(host)}&exact=0`]);
+    }
+    if (S.sources.youtube) { if (env.youtube) jobs.push([b, 'youtube', `/api/youtube?q=${encodeURIComponent(b.name)}${d}`]); else if (gr) jobs.push([b, 'youtube', `/api/google?q=${q}${d}&site=youtube.com`]); else S.log[b.name].youtube = needKey; }
+  }
+  busy3 = true; prog3 = { done: 0, total: jobs.length }; S.analysis = {}; S.report = null; render();
+  const run = async ([b, key, path]) => {
+    try {
+      const r = await api(path, { timeout: 40000 });
+      const n = addItems(b.name, r.items || []);
+      S.log[b.name][key] = { ok: true, count: n, raw: (r.items || []).length, url: r.feedUrl || r.searchUrl, note: r.note };
+    } catch (e) {
+      S.log[b.name][key] = { error: e.message, url: e.data && (e.data.searchUrl || e.data.feedUrl) };
+    }
+    prog3.done++; renderProgress3();
+  };
+  const queue = jobs.slice(); const workers = Array.from({ length: 4 }, async () => { while (queue.length) await run(queue.shift()); });
+  await Promise.all(workers);
+  busy3 = false; save(); render();
+}
+function renderProgress3() { const p = $('#p3'); if (p) p.style.width = (prog3.total ? prog3.done / prog3.total * 100 : 0) + '%'; const t = $('#p3t'); if (t) t.textContent = `${prog3.done} / ${prog3.total}`; }
+function searchGroups(b) {
+  const n = b.name, q = encodeURIComponent(`"${n}"`), qp = encodeURIComponent(n);
+  const to1 = iso(new Date(Date.parse(S.to) + 86400000));
+  const md = d => { const [y, m, dd] = d.split('-'); return `${+m}/${+dd}/${y}`; };
+  const cdr = `&tbs=cdr:1,cd_min:${encodeURIComponent(md(S.from))},cd_max:${encodeURIComponent(md(S.to))}`;
+  let host = ''; try { host = new URL(b.website).hostname.replace(/^www\./, ''); } catch {}
+  const me = S.company && !b.self ? S.company.name : '';
+  return [
+    ['新聞', [
+      ['Google 新聞（期間內）', `https://news.google.com/search?q=${encodeURIComponent(`"${n}" after:${S.from} before:${to1}`)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`],
+      ['Google 新聞分頁', `https://www.google.com/search?q=${q}&tbm=nws${cdr}`],
+      ['Yahoo 新聞', `https://tw.news.yahoo.com/search?p=${qp}`],
+    ]],
+    ['Facebook', [
+      ['貼文搜尋', `https://www.facebook.com/search/posts?q=${qp}`],
+      ['粉絲專頁', `https://www.facebook.com/search/pages?q=${qp}`],
+    ]],
+    ['YouTube', [
+      ['最新影片', `https://www.youtube.com/results?search_query=${qp}&sp=CAI%253D`],
+    ]],
+    ['官網', host ? [
+      ['開啟官網', safeUrl(b.website)],
+      ['站內新聞／文章', `https://www.google.com/search?q=${encodeURIComponent(`site:${host} ${n}`)}${cdr}`],
+    ] : [['搜尋官網', `https://www.google.com/search?q=${encodeURIComponent(n + ' 官網')}`]]],
+    ['網路討論', [
+      ['Google（期間內）', `https://www.google.com/search?q=${q}${cdr}`],
+      ['PTT／Dcard', `https://www.google.com/search?q=${encodeURIComponent(`${n} (site:ptt.cc OR site:dcard.tw)`)}${cdr}`],
+      ...(me ? [[`與 ${me} 比較`, `https://www.google.com/search?q=${encodeURIComponent(`"${n}" "${me}"`)}`]] : []),
+    ]],
+  ];
+}
+function searchLinks(b) {
+  return `<div class="linkrow">${searchGroups(b).flatMap(g => g[1]).slice(0, 5).map(([l, u]) => link(u, esc(l))).join('')}</div>`;
+}
+function searchHub(bs) {
+  const heads = searchGroups(bs[0])[0] ? searchGroups(bs[0]).map(g => g[0]) : [];
+  return `<div class="sec"><div class="sec-h"><span class="k">Search</span><h3>一鍵搜尋入口</h3><span class="small muted">點連結會在新分頁開啟真實的搜尋結果，新聞連結已套用 ${S.from} ～ ${S.to} 的日期</span></div>
+    <div class="tbl-wrap"><table class="hub"><thead><tr><th>品牌</th>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>
+    ${bs.map(b => `<tr><td><b>${esc(b.name)}</b>${b.self ? '<span class="self-mark">我方</span>' : ''}</td>${searchGroups(b).map(g => `<td><div class="linkcol">${g[1].map(([l, u]) => link(u, esc(l) + ' ↗')).join('')}</div></td>`).join('')}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="small muted" style="margin:0">找到相關文章後，把網址貼到下方「手動新增文章」，就能納入 AI 分析與報告。Facebook 需登入才能看貼文，系統不會自動抓取。</p></div>`;
+}
+function view3(v) {
+  const bs = brands();
+  const cols = [['news', '新聞（中文）'], ['newsEn', '新聞（英文）'], ['google', 'Google 搜尋'], ['facebook', 'Facebook'], ['site', '官網'], ['site2', '官網站內搜尋'], ['youtube', 'YouTube']].filter(([k]) => k === 'site2' ? S.sources.site && googleReady() : S.sources[k]);
+  const hasLog = Object.keys(S.log).length;
+  const cell = (b, k) => {
+    const l = S.log[b.name] && S.log[b.name][k];
+    if (!l) return '<span class="cell-skip">—</span>';
+    if (l.skip) return `<span class="cell-skip">${esc(l.skip)}</span>`;
+    if (l.ok) return `<span class="cell-ok">✓ ${l.count} 篇</span>${l.raw > l.count ? `<div class="small muted">原始 ${l.raw}，去重後 ${l.count}</div>` : ''}${l.note ? `<div class="small muted">${esc(l.note)}</div>` : ''}`;
+    return `<span class="cell-err">✕ ${esc(l.error)}</span>${l.url ? `<div class="small">${link(l.url, '開啟原始頁面')}</div>` : ''}`;
+  };
+  const items = S.items.filter(i => inDate(i) && (!filt3.brand || i.brand === filt3.brand) && (!filt3.type || i.type === filt3.type))
+    .sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0));
+  v.innerHTML = `<section class="panel">
+    <div class="panel-head"><h2>蒐集公開資料</h2>
+      <p>${env.backend ? '' : '線上版不會自動抓取，請用下方搜尋連結找到文章後貼上。完整版會'}自動搜尋 ${bs.length} 個品牌在新聞、Google、Facebook、官網、YouTube 的內容，公司的中英文名稱與簡稱都會一起搜尋。Facebook 內容來自 Google 已收錄的公開貼文與粉專，不需要登入。</p></div>
+    <div class="row">
+      <div class="field" style="flex:0 1 170px"><label for="d-from">開始日期</label><input type="date" id="d-from" value="${S.from}" max="${S.to}"></div>
+      <div class="field" style="flex:0 1 170px"><label for="d-to">結束日期</label><input type="date" id="d-to" value="${S.to}" min="${S.from}"></div>
+      <div class="row" style="gap:6px">${[7, 30, 90, 180].map(n => `<button class="sm" data-days="${n}">近 ${n} 天</button>`).join('')}</div>
+    </div>
+    <div class="row" style="gap:18px">
+      ${[['news', '新聞（中文）'], ['newsEn', '新聞（英文）'], ['google', 'Google 搜尋'], ['facebook', 'Facebook'], ['site', '公司官網'], ['youtube', 'YouTube']].map(([k, l]) => `<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-src="${k}" ${S.sources[k] ? 'checked' : ''} style="accent-color:var(--accent)">${l}</label>`).join('')}
+    </div>
+    ${env.backend === false ? notice('warn', '線上預覽版不會自動抓取文章', '瀏覽器的安全限制不允許這個頁面直接讀取新聞網站，所以這裡不會自動抓，也不會顯示假資料。請用下方「一鍵搜尋入口」開啟真實搜尋結果，再把文章網址貼回來。要全自動抓取新聞，請下載完整版，在電腦上雙擊啟動檔。') : ''}
+    ${env.backend && !googleReady() && (S.sources.google || S.sources.facebook) ? `<div class="notice warn"><b>還差一步：開啟 Google／Facebook 自動搜尋</b>到 ${link('https://serper.dev', 'serper.dev')} 免費註冊（每月有免費額度），複製 API Key 貼在這裡：
+      <div class="row" style="margin-top:8px"><div class="field"><input type="password" id="sk3" placeholder="Serper API Key" aria-label="Serper API Key"></div><button class="primary" id="b-sk3">啟用</button></div></div>` : ''}
+    ${env.backend ? '' : searchHub(bs)}
+    ${env.backend === false ? '' : `<div class="row"><button class="primary" id="b-collect" ${busy3 || env.backend === false ? 'disabled' : ''}>${busy3 ? '<i class="spin"></i> 蒐集中 <span id="p3t" class="mono">' + prog3.done + ' / ' + prog3.total + '</span>' : hasLog ? '↻ 重新整理' : '開始蒐集'}</button>
+      ${busy3 ? '<div class="progress" style="flex:1 1 200px"><i id="p3"></i></div>' : ''}</div>`}
+    ${env.backend === false ? '' : `<div class="sec"><div class="sec-h"><span class="k">Sources</span><h3>各來源讀取狀態</h3></div>
+      <div class="tbl-wrap"><table><thead><tr><th>品牌</th>${cols.map(c => `<th>${c[1]}</th>`).join('')}<th>手動</th><th>開啟搜尋</th></tr></thead><tbody>
+      ${bs.map(b => `<tr><td><b>${esc(b.name)}</b>${b.self ? '<span class="self-mark">我方</span>' : ''}</td>${cols.map(([k]) => `<td>${cell(b, k)}</td>`).join('')}
+        <td class="n">${S.items.filter(i => i.brand === b.name && i.manual).length}</td><td>${searchLinks(b)}</td></tr>`).join('')}
+      </tbody></table></div></div>`}
+
+    <details class="settings" ${manualMsg ? 'open' : ''} id="manual"><summary><b style="color:var(--ink)">＋ 手動新增文章</b>（無法自動讀取的網站、Facebook 貼文、YouTube 影片）</summary>
+      <div style="display:grid;gap:12px">
+        <div class="row">
+          <div class="field"><label for="mn-brand">品牌</label><select id="mn-brand">${bs.map(b => `<option>${esc(b.name)}</option>`).join('')}</select></div>
+          <div class="field"><label for="mn-type">類型</label><select id="mn-type"><option value="manual">新聞／網頁</option><option value="facebook">Facebook 貼文</option><option value="youtube">YouTube 影片</option><option value="site">官網文章</option></select></div>
+          <div class="field"><label for="mn-date">發布日期</label><input type="date" id="mn-date" value="${S.to}"></div>
+        </div>
+        <div class="field"><label for="bulk">一次貼上多篇（每行一篇：「標題 網址」或只貼網址）</label><textarea id="bulk" style="min-height:90px" placeholder="競品推出新課程 https://news.example.com/123&#10;https://www.facebook.com/xxx/posts/456"></textarea>
+          <div><button id="b-bulk">加入以上所有網址</button></div></div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:4px 0">
+        <div class="row"><div class="field" style="flex:3 1 300px"><label for="mn-url">原始網址</label><input type="url" id="mn-url" placeholder="https://"></div>
+          <button id="b-readurl" ${env.backend ? '' : 'disabled'} title="${env.backend ? '' : '需要後端服務'}">從網址讀取內容</button></div>
+        <div class="field"><label for="mn-title">標題</label><input type="text" id="mn-title"></div>
+        <div class="field"><label for="mn-text">內容（可直接貼上全文或摘要）</label><textarea id="mn-text"></textarea></div>
+        ${manualMsg ? `<div>${manualMsg}</div>` : ''}
+        <div><button class="primary" id="b-addman">加入文章</button></div>
+      </div></details>
+
+    <div class="sec"><div class="sec-h"><span class="k">Articles</span><h3>已蒐集文章</h3><span class="muted small">${items.length} 篇（已去除重複，依日期 ${S.from} ～ ${S.to} 篩選）</span></div>
+      <div class="filters">
+        <select id="f3-brand" aria-label="篩選品牌"><option value="">全部品牌</option>${bs.map(b => `<option ${filt3.brand === b.name ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select>
+        <select id="f3-type" aria-label="篩選類型"><option value="">全部類型</option>${Object.entries(TYPE).map(([k, l]) => `<option value="${k}" ${filt3.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      </div>
+      ${items.length ? `<div class="tbl-wrap"><table><thead><tr><th>標題／摘要</th><th>品牌</th><th>類型</th><th>來源</th><th>日期</th><th></th></tr></thead><tbody>
+        ${items.slice(0, 300).map(i => `<tr><td class="title-cell" style="min-width:260px">${link(i.url, esc(i.title))}${i.summary || i.text ? `<p>${esc(i.summary || i.text)}</p>` : ''}</td>
+          <td>${esc(i.brand)}</td><td><span class="tag">${TYPE[i.type] || i.type}</span></td><td class="small">${esc(i.source)}</td><td class="mono small" style="white-space:nowrap">${fmtDate(i.date)}</td>
+          <td><button class="ghost sm" data-del="${i.id}" aria-label="刪除">刪除</button></td></tr>`).join('')}
+      </tbody></table></div>${items.length > 300 ? '<p class="small muted">僅顯示最新 300 篇。</p>' : ''}` : `<p class="muted">${hasLog ? '這段期間沒有找到相關文章。可以拉長日期範圍，或手動新增。' : '尚未蒐集。按「開始蒐集」或手動新增文章。'}</p>`}
+    </div>
+    <div class="actions"><button id="b-back3">← 上一步</button><span class="muted small">共 ${S.items.filter(inDate).length} 篇可分析</span>
+      <button class="primary" id="b-next3" ${S.items.filter(inDate).length ? '' : 'disabled'}>下一步：產生報告 →</button></div>
+  </section>`;
+  renderProgress3();
+  $('#d-from').onchange = e => { S.from = e.target.value; save(); render(); };
+  $('#d-to').onchange = e => { S.to = e.target.value; save(); render(); };
+  $$('[data-days]').forEach(b => b.onclick = () => { S.from = daysAgo(+b.dataset.days); S.to = iso(new Date()); save(); render(); });
+  $$('[data-src]').forEach(c => c.onchange = () => { S.sources[c.dataset.src] = c.checked; save(); render(); });
+  if ($('#b-collect')) $('#b-collect').onclick = collect;
+  if ($('#b-sk3')) $('#b-sk3').onclick = () => { const k = $('#sk3').value.trim(); if (!k) return $('#sk3').focus(); serperKey = k; store.set('radar.serper', k); $('#serperkey').value = k; renderEnv(); render(); };
+  $('#f3-brand').onchange = e => { filt3.brand = e.target.value; render(); };
+  $('#f3-type').onchange = e => { filt3.type = e.target.value; render(); };
+  $$('[data-del]').forEach(b => b.onclick = () => { S.items = S.items.filter(i => i.id !== b.dataset.del); delete S.analysis[b.dataset.del]; save(); render(); });
+  $('#b-readurl').onclick = async () => {
+    const u = $('#mn-url').value.trim(); if (!safeUrl(u)) { manualMsg = notice('err', '', '請輸入正確的網址（http 或 https 開頭）'); return render(); }
+    const btn = $('#b-readurl'); btn.disabled = true; btn.innerHTML = '<i class="spin"></i> 讀取中';
+    try {
+      const { item } = await api('/api/fetch?url=' + encodeURIComponent(u), { timeout: 30000 });
+      $('#mn-title').value = item.title || ''; $('#mn-text').value = item.text || item.summary || '';
+      if (item.date) $('#mn-date').value = item.date.slice(0, 10);
+      $('#manual').insertAdjacentHTML('beforeend', '');
+    } catch (e) { manualMsg = notice('err', '無法讀取此網址', esc(e.message)); const keep = { u, b: $('#mn-brand').value, t: $('#mn-type').value }; render(); $('#mn-url').value = keep.u; $('#mn-brand').value = keep.b; $('#mn-type').value = keep.t; return; }
+    btn.disabled = false; btn.textContent = '從網址讀取內容';
+  };
+  $('#b-bulk').onclick = () => {
+    const lines = $('#bulk').value.split(/\n+/).map(x => x.trim()).filter(Boolean);
+    const list = [];
+    for (const ln of lines) {
+      const m = ln.match(/https?:\/\/\S+/); if (!m || !safeUrl(m[0])) continue;
+      const url = m[0], title = ln.replace(url, '').replace(/[|｜\-–—:：\s]+$/,'').trim();
+      const h = new URL(url).hostname.replace(/^www\./, '');
+      const type = /facebook\.com|fb\.com/.test(h) ? 'facebook' : /youtube\.com|youtu\.be/.test(h) ? 'youtube' : $('#mn-type').value;
+      list.push({ type, title: title || url, url, date: '', source: h, summary: '', manual: true });
+    }
+    if (!list.length) { manualMsg = notice('err', '', '沒有找到有效的網址（需要 http 或 https 開頭）。'); return render(); }
+    const n = addItems($('#mn-brand').value, list);
+    manualMsg = notice('info', '', `已加入 ${n} 篇${list.length > n ? `，${list.length - n} 篇重複未加入` : ''}。只有網址沒有內容的文章，AI 只能依標題判斷，建議貼上標題或摘要。`);
+    S.report = null; save(); render();
+  };
+  $('#b-addman').onclick = () => {
+    const title = $('#mn-title').value.trim(), text = $('#mn-text').value.trim(), url = $('#mn-url').value.trim();
+    if (!title && !text) { manualMsg = notice('err', '', '請至少填寫標題或內容。'); return render(); }
+    if (url && !safeUrl(url)) { manualMsg = notice('err', '', '網址格式不正確。'); return render(); }
+    const date = $('#mn-date').value;
+    const n = addItems($('#mn-brand').value, [{ type: $('#mn-type').value, title: title || text.slice(0, 40), url, date: date ? new Date(date + 'T12:00:00').toISOString() : '', source: url ? new URL(url).hostname.replace(/^www\./, '') : '手動貼上', summary: text.slice(0, 600), text, manual: true }]);
+    manualMsg = n ? notice('info', '', '已加入 1 篇文章。') : notice('warn', '', '這篇文章和已有的文章重複，未重複加入。');
+    S.report = null; save(); render();
+  };
+  $('#b-back3').onclick = () => go(2);
+  $('#b-next3').onclick = () => go(4);
+}
+
+// ================= 步驟 4：分析與報告 =================
+let busy4 = false, err4 = '', prog4 = { done: 0, total: 0, label: '' }, filt4 = { brand: '', level: '', sent: '' };
+function companyBrief() {
+  const c = S.company;
+  return `我方公司：${c.name}；產業：${c.industry || '未提供'}；地區：${c.region || '未提供'}；主要產品／服務：${c.products || '未提供'}；說明：${c.description || '未提供'}`;
+}
+async function analyze() {
+  const items = S.items.filter(inDate);
+  const todo = items.filter(i => !S.analysis[i.id]);
+  const B = 20, batches = [];
+  for (let k = 0; k < todo.length; k += B) batches.push(todo.slice(k, k + B));
+  busy4 = true; err4 = ''; prog4 = { done: 0, total: batches.length + 1, label: '逐篇判讀' }; render();
+  const comp = S.competitors.filter(c => c.checked).map(c => c.name).join('、');
+  try {
+    const queue = batches.slice();
+    await Promise.all(Array.from({ length: 2 }, async () => {
+      while (queue.length) {
+        const batch = queue.shift();
+        const data = batch.map(i => ({ id: i.id, brand: i.brand, type: TYPE[i.type], date: i.date ? i.date.slice(0, 10) : '', title: i.title, content: (i.text || i.summary || '').slice(0, 500) }));
+        const r = await askAI(`你是競爭情報分析師。${companyBrief()}。追蹤的競業：${comp}。
+以下是蒐集到的公開文章（JSON）。請逐篇判斷：
+- level：這篇內容對「我方公司」的風險／競爭相關程度。red＝直接威脅我方產品或市場（例如競業推出與我方直接對打的產品、搶客戶、降價、重大合作、或我方的負面事件）；yellow＝間接相關，值得持續關注；green＝低相關，或對我方有利、是機會。
+- sentiment：文章對其所屬品牌的態度 positive / neutral / negative
+- topic：議題分類，10 字以內（例如：新品發表、融資、財報、人事、合作、資安事件、客訴、活動行銷）
+- keywords：2～4 個關鍵字
+- reason：一句話，具體說明這篇與我方公司的比較或對我方的影響。只能根據文章內容，不可加入文章沒有的事實；資訊不足就寫「資訊不足」。
+用繁體中文。只輸出 JSON：{"results":[{"id":"","level":"red|yellow|green","sentiment":"positive|neutral|negative","topic":"","keywords":[],"reason":""}]}
+文章：${JSON.stringify(data)}`, { maxTokens: 8000 });
+        for (const x of r.results || []) if (x && x.id && batch.some(i => i.id === x.id)) S.analysis[x.id] = {
+          level: ['red', 'yellow', 'green'].includes(x.level) ? x.level : 'yellow',
+          sentiment: ['positive', 'neutral', 'negative'].includes(x.sentiment) ? x.sentiment : 'neutral',
+          topic: String(x.topic || '').slice(0, 20), keywords: (x.keywords || []).slice(0, 4).map(String), reason: String(x.reason || ''),
+        };
+        prog4.done++; save(); renderProgress4();
+      }
+    }));
+    prog4.label = '撰寫競業簡報'; renderProgress4();
+    const st = stats();
+    const list = items.filter(i => S.analysis[i.id]).sort((a, b) => ({ red: 0, yellow: 1, green: 2 }[S.analysis[a.id].level] - { red: 0, yellow: 1, green: 2 }[S.analysis[b.id].level])).slice(0, 160)
+      .map(i => ({ id: i.id, brand: i.brand, date: i.date ? i.date.slice(0, 10) : '', title: i.title, level: S.analysis[i.id].level, sentiment: S.analysis[i.id].sentiment, topic: S.analysis[i.id].topic, reason: S.analysis[i.id].reason }));
+    const r = await askAI(`你是競爭情報分析師，要寫一份給 ${S.company.name} 主管看的競業輿情簡報。${companyBrief()}。期間：${S.from} 至 ${S.to}。
+各品牌統計：${JSON.stringify(st.byBrand.map(b => ({ brand: b.name, self: !!b.self, total: b.total, news: b.types.news || 0, red: b.lv.red, yellow: b.lv.yellow, green: b.lv.green, positive: b.se.positive, neutral: b.se.neutral, negative: b.se.negative })))}
+已判讀的文章：${JSON.stringify(list)}
+規則：只能使用上面的資料，不可加入外部資訊或推測成事實；每個「值得關注的事件」都要引用 itemIds；文章少於 3 篇的品牌要註明「資料不足」；比較要具體點出與我方哪個產品或市場有關。用繁體中文、精簡。
+只輸出 JSON：{"overview":"3～5 句整體結論","actions":["給我方的具體建議，3～5 點"],"brands":[{"name":"品牌名（與統計中一致）","threat":"red|yellow|green","strengths":["主要優勢"],"issues":["問題或負面"],"events":[{"title":"事件","itemIds":["id"]}],"vsUs":"與我方的具體比較，1～2 句"}],"topics":[{"topic":"常見議題","brands":["品牌"],"note":"一句說明"}]}`, { tier: 'complex', maxTokens: 8000 });
+    S.report = r; S.reportAt = new Date().toISOString(); prog4.done++;
+  } catch (e) { err4 = e.message; }
+  busy4 = false; save(); render();
+}
+function renderProgress4() { const p = $('#p4'); if (p) p.style.width = (prog4.total ? prog4.done / prog4.total * 100 : 0) + '%'; const t = $('#p4t'); if (t) t.textContent = `${prog4.label} ${prog4.done}/${prog4.total}`; }
+function stats() {
+  const items = S.items.filter(inDate);
+  const byBrand = brands().map(b => {
+    const its = items.filter(i => i.brand === b.name);
+    const o = { name: b.name, self: b.self, total: its.length, types: {}, lv: { red: 0, yellow: 0, green: 0 }, se: { positive: 0, neutral: 0, negative: 0 }, analyzed: 0 };
+    for (const i of its) {
+      o.types[i.type] = (o.types[i.type] || 0) + 1;
+      const a = S.analysis[i.id]; if (a) { o.analyzed++; o.lv[a.level]++; o.se[a.sentiment]++; }
+    }
+    return o;
+  });
+  const kw = {}, tp = {};
+  for (const i of items) { const a = S.analysis[i.id]; if (!a) continue; for (const k of a.keywords) { const kk = k.trim(); if (kk) kw[kk] = (kw[kk] || 0) + 1; } if (a.topic) { tp[a.topic] = tp[a.topic] || { n: 0, brands: new Set() }; tp[a.topic].n++; tp[a.topic].brands.add(i.brand); } }
+  return { items, byBrand, kw: Object.entries(kw).sort((a, b) => b[1] - a[1]).slice(0, 30), tp: Object.entries(tp).sort((a, b) => b[1].n - a[1].n).slice(0, 12) };
+}
+function hbar(rows, max, segs) {
+  return `<div class="bars">${rows.map(r => `<div class="bar"><span class="nm" title="${esc(r.name)}">${esc(r.name)}</span>
+    <span class="tr">${segs.map(s => `<i style="width:${max ? (r[s.k] / max * 100) : 0}%;background:${s.c}" title="${s.l} ${r[s.k]}"></i>`).join('')}</span>
+    <span class="vv">${segs.reduce((a, s) => a + r[s.k], 0)}</span></div>`).join('')}</div>`;
+}
+function view4(v) {
+  const st = stats();
+  const nAna = st.items.filter(i => S.analysis[i.id]).length;
+  const R = S.report;
+  const totalRed = st.byBrand.reduce((a, b) => a + b.lv.red, 0), totalNeg = st.byBrand.reduce((a, b) => a + b.se.negative, 0);
+  const rb = name => (R && R.brands || []).find(x => x.name === name) || (R && R.brands || []).find(x => x.name && name && x.name.toLowerCase().includes(name.toLowerCase())) || null;
+  const itemById = id => S.items.find(i => i.id === id);
+  const lvBadge = l => l ? `<span class="lv ${l}">${LV[l]}</span>` : '<span class="lv none">未評級</span>';
+  const maxNews = Math.max(1, ...st.byBrand.map(b => b.types.news || 0));
+  const maxTot = Math.max(1, ...st.byBrand.map(b => b.total));
+  const maxAna = Math.max(1, ...st.byBrand.map(b => b.analyzed));
+  const typeCols = Object.keys(TYPE).filter(k => st.byBrand.some(b => b.types[k]));
+  const rows = st.items.filter(i => (!filt4.brand || i.brand === filt4.brand) && (!filt4.level || (S.analysis[i.id] || {}).level === filt4.level) && (!filt4.sent || (S.analysis[i.id] || {}).sentiment === filt4.sent))
+    .sort((a, b) => { const o = { red: 0, yellow: 1, green: 2 }; const la = o[(S.analysis[a.id] || {}).level] ?? 3, lb = o[(S.analysis[b.id] || {}).level] ?? 3; return la - lb || (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0); });
+
+  v.innerHTML = `<section class="panel" id="report">
+    <div class="panel-head">
+      <span class="mono small muted">COMPETITIVE BRIEF · ${S.from} ～ ${S.to}</span>
+      <h2>${esc(S.company.name)} 競業輿情報告</h2>
+      <p>比較對象：${brands().filter(b => !b.self).map(b => esc(b.name)).join('、')}。${S.reportAt ? '產生時間：' + new Date(S.reportAt).toLocaleString('zh-TW') + '。' : ''}所有統計僅來自步驟 3 實際蒐集或手動貼上的文章。</p>
+    </div>
+    ${!R || nAna < st.items.length ? `<div class="row"><button class="primary" id="b-analyze" ${busy4 || !aiReady() ? 'disabled' : ''}>${busy4 ? '<i class="spin"></i> <span id="p4t">分析中</span>' : R ? `分析新加入的 ${st.items.length - nAna} 篇並更新報告` : `用 AI 分析 ${st.items.length} 篇文章並產生報告`}</button>
+      ${busy4 ? '<div class="progress" style="flex:1 1 200px"><i id="p4"></i></div>' : ''}</div>` : ''}
+    ${!aiReady() && env.sampleChecked ? notice('warn', 'AI 尚未連接', '目前只能顯示文章數量與聲量統計；紅黃綠分級、正負面分類、關鍵字與競業簡報需要 AI。請啟動後端並設定 ANTHROPIC_API_KEY，或在「連線與 AI 設定」輸入 API Key。') : ''}
+    ${err4 ? notice('err', 'AI 分析沒有完成', esc(err4) + (nAna ? `<br>已完成 ${nAna} 篇的判讀，再按一次會從中斷處繼續。` : '')) : ''}
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">${st.items.length}</div><div class="l">文章總數（已去重）</div></div>
+      <div class="kpi"><div class="v">${st.byBrand.length}</div><div class="l">品牌數（含我方）</div></div>
+      <div class="kpi"><div class="v" style="color:var(--red)">${nAna ? totalRed : '—'}</div><div class="l">紅色・高度相關文章</div></div>
+      <div class="kpi"><div class="v">${nAna ? Math.round(totalNeg / nAna * 100) + '%' : '—'}</div><div class="l">負面內容比例</div></div>
+    </div>
+
+    ${R ? `<div class="sec"><div class="sec-h"><span class="k">Brief</span><h3>競業簡報</h3></div>
+      <div class="brief"><p>${esc(R.overview)}</p>${(R.actions || []).length ? `<div><b class="small">建議 ${esc(S.company.name)} 採取的行動</b><ul>${R.actions.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}</div></div>` : ''}
+
+    <div class="sec"><div class="sec-h"><span class="k">Risk</span><h3>紅綠燈分級總表</h3><span class="small muted">紅＝直接威脅我方產品或市場，黃＝需持續關注，綠＝低相關或機會</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>品牌</th><th>整體分級</th><th class="n">紅</th><th class="n">黃</th><th class="n">綠</th><th class="n">正面</th><th class="n">中立</th><th class="n">負面</th><th>與 ${esc(S.company.name)} 的比較</th></tr></thead><tbody>
+      ${st.byBrand.map(b => { const x = rb(b.name); return `<tr><td><b>${esc(b.name)}</b>${b.self ? '<span class="self-mark">我方</span>' : ''}</td><td>${b.self ? '<span class="muted small">—</span>' : lvBadge(x && x.threat)}</td>
+        <td class="n" style="color:var(--red)">${b.lv.red}</td><td class="n" style="color:var(--yellow)">${b.lv.yellow}</td><td class="n" style="color:var(--green)">${b.lv.green}</td>
+        <td class="n">${b.se.positive}</td><td class="n">${b.se.neutral}</td><td class="n">${b.se.negative}</td><td class="small" style="min-width:220px">${esc(x ? x.vsUs : (b.analyzed ? '' : '尚未分析'))}</td></tr>`; }).join('')}
+      </tbody></table></div></div>
+
+    <div class="grid2">
+      <div class="sec"><div class="sec-h"><span class="k">Volume</span><h3>各品牌新聞聲量</h3></div>
+        ${hbar(st.byBrand.map(b => ({ name: b.name, n: b.types.news || 0 })), maxNews, [{ k: 'n', c: 'var(--accent)', l: '新聞' }])}
+        <p class="small muted" style="margin:0">計算 RSS 新聞篇數（期間內、已去重）。</p></div>
+      <div class="sec"><div class="sec-h"><span class="k">Sentiment</span><h3>正面／中立／負面</h3></div>
+        ${nAna ? hbar(st.byBrand.map(b => ({ name: b.name, p: b.se.positive, u: b.se.neutral, g: b.se.negative })), maxAna, [{ k: 'p', c: 'var(--pos)', l: '正面' }, { k: 'u', c: 'var(--neu)', l: '中立' }, { k: 'g', c: 'var(--neg)', l: '負面' }])
+          + '<div class="legend"><span><i style="background:var(--pos)"></i>正面</span><span><i style="background:var(--neu)"></i>中立</span><span><i style="background:var(--neg)"></i>負面</span></div>' : '<p class="muted small">需要 AI 分析後顯示。</p>'}</div>
+    </div>
+
+    <div class="sec"><div class="sec-h"><span class="k">Count</span><h3>各品牌文章數量</h3></div>
+      <div class="tbl-wrap"><table><thead><tr><th>品牌</th>${typeCols.map(k => `<th class="n">${TYPE[k]}</th>`).join('')}<th class="n">合計</th><th style="width:35%">分布</th></tr></thead><tbody>
+      ${st.byBrand.map(b => `<tr><td><b>${esc(b.name)}</b>${b.self ? '<span class="self-mark">我方</span>' : ''}</td>${typeCols.map(k => `<td class="n">${b.types[k] || 0}</td>`).join('')}<td class="n"><b>${b.total}</b></td>
+        <td><div class="tr" style="height:10px;background:var(--surface-2);border-radius:4px;overflow:hidden"><i style="display:block;height:100%;width:${b.total / maxTot * 100}%;background:var(--accent)"></i></div></td></tr>`).join('')}
+      </tbody></table></div></div>
+
+    <div class="grid2">
+      <div class="sec"><div class="sec-h"><span class="k">Keywords</span><h3>熱門關鍵字</h3></div>
+        ${st.kw.length ? `<div class="kw">${st.kw.map(([k, n]) => `<span style="font-size:${(0.8 + Math.min(n, 8) * 0.06).toFixed(2)}rem">${esc(k)}<b>${n}</b></span>`).join('')}</div>` : '<p class="muted small">需要 AI 分析後顯示。</p>'}</div>
+      <div class="sec"><div class="sec-h"><span class="k">Topics</span><h3>常見議題</h3></div>
+        ${st.tp.length ? `<div class="tbl-wrap"><table><thead><tr><th>議題</th><th class="n">篇數</th><th>涉及品牌</th></tr></thead><tbody>
+          ${st.tp.map(([t, o]) => { const note = (R && R.topics || []).find(x => x.topic === t); return `<tr><td>${esc(t)}${note ? `<div class="small muted">${esc(note.note)}</div>` : ''}</td><td class="n">${o.n}</td><td class="small">${[...o.brands].map(esc).join('、')}</td></tr>`; }).join('')}
+        </tbody></table></div>` : '<p class="muted small">需要 AI 分析後顯示。</p>'}</div>
+    </div>
+
+    ${R ? `<div class="sec"><div class="sec-h"><span class="k">Brands</span><h3>各品牌優勢、問題與值得關注的事件</h3></div>
+      <div class="bcards">${st.byBrand.map(b => { const x = rb(b.name); if (!x) return ''; return `<article class="bcard ${b.self ? '' : x.threat}">
+        <div class="row" style="justify-content:space-between;align-items:center"><h3>${esc(b.name)}${b.self ? '<span class="self-mark">我方</span>' : ''}</h3>${b.self ? '' : lvBadge(x.threat)}</div>
+        ${x.vsUs && !b.self ? `<div class="vs">${esc(x.vsUs)}</div>` : ''}
+        ${(x.strengths || []).length ? `<div><h4>主要優勢</h4><ul>${x.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+        ${(x.issues || []).length ? `<div><h4>問題／負面</h4><ul>${x.issues.map(s => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+        ${(x.events || []).length ? `<div><h4>值得關注的事件</h4><ul>${x.events.map(e => `<li>${esc(e.title)} ${(e.itemIds || []).map(itemById).filter(Boolean).map((it, k) => link(it.url, `<sup>[${k + 1}]</sup>`)).join('')}</li>`).join('')}</ul></div>` : ''}
+      </article>`; }).join('')}</div></div>` : ''}
+
+    <div class="sec"><div class="sec-h"><span class="k">Detail</span><h3>文章明細</h3><span class="small muted">${rows.length} 篇</span></div>
+      <div class="filters">
+        <select id="f4-brand" aria-label="品牌"><option value="">全部品牌</option>${brands().map(b => `<option ${filt4.brand === b.name ? 'selected' : ''}>${esc(b.name)}</option>`).join('')}</select>
+        <select id="f4-level" aria-label="分級"><option value="">全部分級</option>${Object.entries(LV).map(([k, l]) => `<option value="${k}" ${filt4.level === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <select id="f4-sent" aria-label="情緒"><option value="">全部情緒</option>${Object.entries(SENT).map(([k, l]) => `<option value="${k}" ${filt4.sent === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <span style="flex:1"></span>
+        <button class="sm" id="b-csv">下載 CSV</button><button class="sm" id="b-html">下載報告 HTML</button>
+      </div>
+      <div class="tbl-wrap"><table><thead><tr><th>分級</th><th>標題</th><th>品牌</th><th>情緒</th><th>議題</th><th>對我方的影響</th><th>來源／日期</th></tr></thead><tbody>
+      ${rows.slice(0, 400).map(i => { const a = S.analysis[i.id] || {}; return `<tr><td>${a.level ? `<span class="lv ${a.level}">${LVs[a.level]}</span>` : '<span class="lv none">—</span>'}</td>
+        <td class="title-cell" style="min-width:240px">${link(i.url, esc(i.title))}</td><td class="small">${esc(i.brand)}</td>
+        <td>${a.sentiment ? `<span class="st ${a.sentiment}">${SENT[a.sentiment]}</span>` : '—'}</td><td class="small">${esc(a.topic || '')}</td>
+        <td class="small" style="min-width:220px">${esc(a.reason || '')}</td><td class="small" style="white-space:nowrap">${esc(i.source)}<div class="mono muted">${fmtDate(i.date)}</div></td></tr>`; }).join('')}
+      </tbody></table></div><div id="dl-msg" class="small muted"></div></div>
+    <div class="actions"><button id="b-back4">← 回到蒐集資料</button>${R ? '<button id="b-rerun">重新產生報告</button>' : ''}</div>
+  </section>`;
+  renderProgress4();
+  const ba = $('#b-analyze'); if (ba) ba.onclick = analyze;
+  $('#f4-brand').onchange = e => { filt4.brand = e.target.value; render(); };
+  $('#f4-level').onchange = e => { filt4.level = e.target.value; render(); };
+  $('#f4-sent').onchange = e => { filt4.sent = e.target.value; render(); };
+  $('#b-back4').onclick = () => go(3);
+  const rr = $('#b-rerun'); if (rr) rr.onclick = () => { S.analysis = {}; S.report = null; save(); analyze(); };
+  $('#b-csv').onclick = () => {
+    const head = ['分級', '品牌', '標題', '網址', '來源', '日期', '類型', '情緒', '議題', '關鍵字', '對我方的影響'];
+    const q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+    const lines = [head.join(',')].concat(st.items.map(i => { const a = S.analysis[i.id] || {}; return [LVs[a.level] || '', i.brand, i.title, i.url, i.source, i.date ? i.date.slice(0, 10) : '', TYPE[i.type], SENT[a.sentiment] || '', a.topic || '', (a.keywords || []).join('、'), a.reason || ''].map(q).join(','); }));
+    download(`${S.company.name}-競業輿情-${S.from}_${S.to}.csv`, '﻿' + lines.join('\r\n'), 'text/csv');
+  };
+  $('#b-html').onclick = () => {
+    const css = document.querySelector('style').outerHTML;
+    const body = $('#report').cloneNode(true); $$('button,select,.filters,.actions', body).forEach(x => x.remove());
+    download(`${S.company.name}-競業輿情報告.html`, `<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(S.company.name)} 競業輿情報告</title>${css}</head><body><main class="wrap" style="padding-block:24px">${body.outerHTML}</main></body></html>`, 'text/html');
+  };
+}
+async function download(filename, text, type) {
+  const msg = $('#dl-msg');
+  if (window.claude && claude.use) {
+    try {
+      const d = await claude.use('downloads');
+      if (d) { await d.save({ filename, data: new Blob([text], { type }) }); if (msg) msg.textContent = '已下載 ' + filename; return; }
+    } catch (e) { if (msg) msg.textContent = '下載未完成：' + (e.message || e.code || '已取消'); return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = filename; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+// ================= 設定 =================
+$('#apikey').value = userKey;
+$('#serperkey').value = serperKey;
+$('#savekey').onclick = () => { userKey = $('#apikey').value.trim(); store.set('radar.key', userKey); serperKey = $('#serperkey').value.trim(); store.set('radar.serper', serperKey); renderEnv(); render(); };
+let resetArmed = false;
+$('#reset').onclick = e => {
+  if (!resetArmed) { resetArmed = true; e.target.textContent = '再按一次確認清除'; setTimeout(() => { resetArmed = false; e.target.textContent = '清除全部資料重新開始'; }, 4000); return; }
+  store.del('radar.state'); S = DEFAULT(); resetArmed = false; e.target.textContent = '清除全部資料重新開始'; render();
+};
+
+renderEnv(); render(); detect();
+})();
+</script>
